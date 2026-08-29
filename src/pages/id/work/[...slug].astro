@@ -1,0 +1,21 @@
+---
+import { getCollection } from 'astro:content';
+import CaseStudy from '../../../components/CaseStudy.astro';
+import { entryLang, entrySlug } from '../../../i18n/utils';
+
+export async function getStaticPaths() {
+  const entries = await getCollection(
+    'work',
+    (entry) => entry.data.format === 'case-study' && entryLang(entry.id) === 'id',
+  );
+
+  return entries.map((entry) => ({
+    params: { slug: entrySlug(entry.id) },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+---
+
+<CaseStudy entry={entry} lang="id" />
