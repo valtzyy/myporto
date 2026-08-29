@@ -1,0 +1,175 @@
+---
+import { generateGraph, computeFrame, pathFor, radiusFor } from '../lib/graph';
+
+/*
+  Three tiers over one piece of data.
+
+  1. No JavaScript      -> the SVG below, rendered at build time. Always present.
+  2. JavaScript, no GPU -> the same SVG, animated in place by `computeFrame`.
+  3. WebGL              -> three.js takes over with real depth, and the SVG fades out.
+
+  Every tier draws the same graph from `generateGraph()`, so they cannot drift
+  apart. Reduced motion does not drop a tier — WebGL still renders, it just
+  holds a pose instead of turning. Taking the artwork away is not what that
+  preference asks for.
+*/
+const W = 900;
+const H = 620;
+
+const { nodes, edges, spine } = generateGraph();
+const points = computeFrame(nodes, { width: W, height: H, time: 0 });
+---
+
+<div class="absolute inset-0" data-hero-stage>
+  <div class="absolute inset-0 opacity-0 transition-opacity duration-[1400ms]" data-hero-gl></div>
+
+  <svg
+    viewBox={`0 0 ${W} ${H}`}
+    class="absolute inset-0 h-full w-full transition-opacity duration-[1200ms]"
+    preserveAspectRatio="xMidYMid slice"
+    aria-hidden="true"
+    data-hero-graph
+    data-width={W}
+    data-height={H}
+  >
+    <path
+      data-edges
+      d={pathFor(edges, points)}
+      stroke="#6a6a78"
+      stroke-width="1"
+      fill="none"></path>
+    <path
+      data-spine
+      d={pathFor(spine, points)}
+      stroke="#f2703c"
+      stroke-width="1.5"
+      fill="none"
+      opacity="0.75"></path>
+
+    <g data-nodes>
+      {
+        nodes.map((n, i) => (
+          <circle
+            cx={points[i].x.toFixed(1)}
+            cy={points[i].y.toFixed(1)}
+            r={radiusFor(n, points[i].depth).toFixed(2)}
+            fill={n.hub ? '#f2703c' : '#c3c3cd'}
+            opacity={n.hub ? '1' : (0.78 * points[i].depth).toFixed(2)}
+          />
+        ))
+      }
+    </g>
+  </svg>
+</div>
+
+<script>
+  import { generateGraph, computeFrame, pathFor, radiusFor } from '../lib/graph';
+
+  const stage = document.querySelector<HTMLElement>('[data-hero-stage]');
+  const svg = stage?.querySelector<SVGSVGElement>('[data-hero-graph]');
+  const glHost = stage?.querySelector<HTMLElement>('[data-hero-gl]');
+  const wantsMotion = matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+  function hasWebGL() {
+    try {
+      const c = document.createElement('canvas');
+      return Boolean(c.getContext('webgl2') ?? c.getContext('webgl'));
+    } catch {
+      return false;
+    }
+  }
+
+  /* Tier 2: animate the SVG. Used while WebGL loads, and kept if it never does. */
+  function animateSvg(target: SVGSVGElement) {
+    const W = Number(target.dataset.width);
+    const H = Number(target.dataset.height);
+    const { nodes, edges, spine } = generateGraph();
+
+    const edgePath = target.querySelector<SVGPathElement>('[data-edges]')!;
+    const spinePath = target.querySelector<SVGPathElement>('[data-spine]')!;
+    const circles = Array.from(target.querySelectorAll<SVGCircleElement>('[data-nodes] circle'));
+
+    let pointerX = -9999;
+    let pointerY = -9999;
+
+    const onPointer = (event: PointerEvent) => {
+      const rect = target.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      /* preserveAspectRatio="slice" scales by the larger ratio, then centres. */
+      const scale = Math.max(rect.width / W, rect.height / H);
+      pointerX = (event.clientX - rect.left - (rect.width - W * scale) / 2) / scale;
+      pointerY = (event.clientY - rect.top - (rect.height - H * scale) / 2) / scale;
+    };
+
+    window.addEventListener('pointermove', onPointer, { passive: true });
+
+    let raf = 0;
+    let running = false;
+
+    const draw = (time: number) => {
+      const pts = computeFrame(nodes, { width: W, height: H, time, pointerX, pointerY });
+      edgePath.setAttribute('d', pathFor(edges, pts));
+      spinePath.setAttribute('d', pathFor(spine, pts));
+
+      for (let i = 0; i < circles.length; i++) {
+        circles[i].setAttribute('cx', pts[i].x.toFixed(1));
+        circles[i].setAttribute('cy', pts[i].y.toFixed(1));
+        circles[i].setAttribute('r', radiusFor(nodes[i], pts[i].depth).toFixed(2));
+        if (!nodes[i].hub) circles[i].setAttribute('opacity', (0.78 * pts[i].depth).toFixed(2));
+      }
+
+      if (running) raf = requestAnimationFrame(draw);
+    };
+
+    const play = () => {
+      if (running || document.hidden) return;
+      running = true;
+      raf = requestAnimationFrame(draw);
+    };
+
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(raf);
+    };
+
+    document.addEventListener('visibilitychange', () => (document.hidden ? stop() : play()));
+    new IntersectionObserver(([e]) => (e.isIntersecting ? play() : stop())).observe(target);
+
+    return { stop, cleanup: () => window.removeEventListener('pointermove', onPointer) };
+  }
+
+  if (svg && glHost) {
+    /* Reduced motion keeps the artwork and drops only the movement, so the
+       SVG stays still while three.js still renders — once, holding a pose. */
+    const svgLoop = wantsMotion ? animateSvg(svg) : null;
+
+    if (hasWebGL()) {
+      /* Deferred so three.js never competes with first paint. */
+      const boot = () =>
+        import('../lib/hero3d')
+          .then(({ mountHero3D }) => {
+            const hero = mountHero3D(glHost, { motion: wantsMotion });
+            if (!hero) return;
+            /* Cross-fade, then drop the SVG loop so only one runs. */
+            requestAnimationFrame(() => {
+              glHost.style.opacity = '1';
+              svg.style.opacity = '0';
+            });
+            setTimeout(() => {
+              svgLoop?.stop();
+              svgLoop?.cleanup();
+              svg.remove();
+            }, 1500);
+          })
+          .catch(() => {
+            /* Keep the SVG animation. Nothing to undo. */
+          });
+
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(boot, { timeout: 2500 });
+      } else {
+        setTimeout(boot, 600);
+      }
+    }
+  }
+</script>
