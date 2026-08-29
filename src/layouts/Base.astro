@@ -1,0 +1,169 @@
+---
+import '../styles/global.css';
+import { site, localised } from '../consts';
+import { languages, type Lang } from '../i18n/ui';
+import { alternatePath, getLangFromUrl, useTranslations } from '../i18n/utils';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const strings = localised[lang];
+
+const { title, description = strings.description } = Astro.props;
+const pageTitle = title ? `${title} — ${site.name}` : `${site.name} — ${strings.role}`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+
+const alternates = (Object.keys(languages) as Lang[]).map((code) => ({
+  code,
+  href: new URL(alternatePath(Astro.url, code), Astro.site).toString(),
+}));
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={canonical} />
+
+    {alternates.map((alt) => <link rel="alternate" hreflang={alt.code} href={alt.href} />)}
+    <link rel="alternate" hreflang="x-default" href={alternates[0].href} />
+
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={site.name} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={lang === 'id' ? 'id_ID' : 'en_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+  </head>
+
+  <body>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-accent focus:px-4 focus:py-2 focus:text-ink-0"
+    >
+      {t('nav.skip')}
+    </a>
+
+    <div class="scroll-rail" aria-hidden="true"></div>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <script>
+      import { byAreaAscending, pickField, type FieldBox } from '../lib/field';
+
+      /*
+        Fallback for browsers without scroll-driven animations. Pure CSS handles
+        the reveal where `animation-timeline: view()` is supported, so this only
+        runs where it is not, and never when the visitor asked for less motion.
+      */
+      const supportsScrollTimeline = CSS.supports('animation-timeline', 'view()');
+      const wantsMotion = matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+      /*
+        Cursor glow. Element offsets are cached and only re-measured when the
+        layout can actually have changed — reading rects on every pointer move
+        would thrash layout and make scrolling stutter.
+
+        Boxes are sorted smallest first so a card wins over the section behind
+        it, which is what "innermost element lights up" means here.
+      */
+      if (wantsMotion) {
+        const fields = Array.from(document.querySelectorAll<HTMLElement>('.field'));
+
+        if (fields.length) {
+          let boxes: (FieldBox & { el: HTMLElement })[] = [];
+
+          const measure = () => {
+            boxes = byAreaAscending(
+              fields.map((el) => {
+                const r = el.getBoundingClientRect();
+                return {
+                  el,
+                  top: r.top + scrollY,
+                  left: r.left + scrollX,
+                  width: r.width,
+                  height: r.height,
+                };
+              }),
+            );
+          };
+
+          measure();
+          addEventListener('resize', measure, { passive: true });
+          addEventListener('load', measure, { passive: true });
+
+          let queued = false;
+          let px = -1;
+          let py = -1;
+          let lit: HTMLElement | null = null;
+
+          const apply = () => {
+            queued = false;
+            const box = pickField(boxes, px, py);
+
+            if (!box) {
+              if (lit) {
+                lit.classList.remove('is-lit');
+                lit = null;
+              }
+              return;
+            }
+
+            if (lit && lit !== box.el) lit.classList.remove('is-lit');
+            box.el.style.setProperty('--mx', px - box.left + 'px');
+            box.el.style.setProperty('--my', py - box.top + 'px');
+            box.el.classList.add('is-lit');
+            lit = box.el;
+          };
+
+          addEventListener(
+            'pointermove',
+            (event) => {
+              /* Touch has no hover; lighting a region under a finger is noise. */
+              if (event.pointerType === 'touch') return;
+              px = event.clientX + scrollX;
+              py = event.clientY + scrollY;
+              if (queued) return;
+              queued = true;
+              requestAnimationFrame(apply);
+            },
+            { passive: true },
+          );
+        }
+      }
+
+      if (!supportsScrollTimeline && wantsMotion) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            }
+          },
+          { rootMargin: '0px 0px -10% 0px' },
+        );
+
+        for (const el of document.querySelectorAll('.reveal')) {
+          observer.observe(el);
+        }
+      }
+    </script>
+  </body>
+</html>
