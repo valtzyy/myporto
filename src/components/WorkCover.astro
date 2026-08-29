@@ -1,0 +1,89 @@
+---
+import { Image } from 'astro:assets';
+import WorkGlyph from './WorkGlyph.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  entry: CollectionEntry<'work'>;
+  /* Rendered width hint, so Astro emits sensible srcset widths. */
+  width?: number;
+  glyphDensity?: number;
+  ratio?: string;
+}
+
+const { entry, width = 900, glyphDensity, ratio = '16 / 10' } = Astro.props;
+const d = entry.data;
+
+/*
+  Three tiers, in order of how much they actually prove.
+
+  1. A real screenshot of the running project.
+  2. Illustrative photography, rendered as a duotone in the site palette so it
+     reads as part of the design rather than as stock pasted in. The card
+     labels it as an illustration.
+  3. Generated artwork, when no photograph fits the project honestly.
+*/
+const contained = d.coverFit === 'contain';
+const coverShell = d.coverTone === 'dark' ? 'bg-ink-0' : 'bg-paper-2/45';
+
+const focus = {
+  center: 'object-center',
+  top: 'object-top',
+  bottom: 'object-bottom',
+}[d.backdropFocus];
+---
+
+<div
+  class:list={[
+    'relative overflow-hidden',
+    d.cover ? coverShell : d.backdrop ? 'bg-ink-0' : 'bg-paper-2/45',
+  ]}
+  style={`aspect-ratio: ${ratio}`}
+>
+  {
+    d.cover ? (
+      <Image
+        src={d.cover}
+        alt={d.coverAlt ?? d.title}
+        width={width}
+        densities={[1, 2]}
+        loading="lazy"
+        decoding="async"
+        class:list={[
+          'h-full w-full transition-transform duration-700 group-hover:scale-[1.02]',
+          contained ? 'object-contain p-10' : 'object-cover object-top',
+        ]}
+      />
+    ) : d.backdrop ? (
+      <>
+        {/* Compressed harder than a screenshot would be: the greyscale and
+            brightness filters below throw away the fine detail that a higher
+            quality would have paid for. */}
+        <Image
+          src={d.backdrop}
+          alt={d.backdropAlt ?? d.title}
+          width={width}
+          quality={48}
+          densities={[1, 1.6]}
+          loading="lazy"
+          decoding="async"
+          class:list={[
+            'h-full w-full object-cover brightness-[.56] contrast-[1.14] grayscale',
+            'transition-transform duration-700 group-hover:scale-[1.03]',
+            focus,
+          ]}
+        />
+        {/* Tints the greyscale image to the accent hue without touching its
+            luminance, which is what keeps it in the palette. */}
+        <span class="pointer-events-none absolute inset-0 bg-accent mix-blend-color opacity-50" aria-hidden="true" />
+        <span class="pointer-events-none absolute inset-0 bg-ink-0/25" aria-hidden="true" />
+      </>
+    ) : (
+      <div class="flex h-full w-full items-center justify-center p-10">
+        <div class="w-full max-w-[17rem]">
+          <WorkGlyph seed={entry.data.title} density={glyphDensity ?? 3 + d.stack.length} />
+        </div>
+      </div>
+    )
+  }
+</div>

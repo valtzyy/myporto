@@ -1,0 +1,81 @@
+---
+/*
+  The summary claims a pattern — design the layer, then lead the people on top
+  of it. This draws that claim instead of only asserting it, so the section is
+  not four paragraphs of prose on its own.
+*/
+import type { Lang } from '../i18n/ui';
+import { useTranslations } from '../i18n/utils';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+const steps = [
+  { role: t('thread.lead'), where: 'DMIS', detail: t('thread.leadDetail') },
+  { role: t('thread.mentor'), where: 'CODE124', detail: t('thread.mentorDetail') },
+  { role: t('thread.builder'), where: 'Archenym', detail: t('thread.builderDetail') },
+];
+---
+
+<ol class="thread grid gap-px border border-ink-2 bg-ink-2 sm:grid-cols-3">
+  {
+    steps.map((s, i) => (
+      <li class="thread-step relative bg-ink-0 p-6" style={`--i:${i}`}>
+        <span class="font-mono text-xs text-ink-3">0{i + 1}</span>
+
+        <div class="mt-5 flex items-center gap-3">
+          <span class="dot h-2 w-2 shrink-0 rounded-full bg-accent" />
+          <span class="h-px flex-1 bg-ink-2" />
+        </div>
+
+        <h3 class="mt-5 font-medium text-paper">{s.role}</h3>
+        <p class="mt-1 font-mono text-xs text-ink-4">{s.where}</p>
+        <p class="mt-3 text-sm text-ink-4">{s.detail}</p>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .thread-step {
+        animation: step-in linear both;
+        animation-timeline: view();
+        animation-range: entry 6% cover 24%;
+        animation-delay: calc(var(--i) * -0.35s);
+      }
+
+      .thread-step .dot {
+        animation: dot-in cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-timeline: view();
+        animation-range: entry 10% cover 28%;
+        animation-delay: calc(var(--i) * -0.3s);
+      }
+    }
+  }
+
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes dot-in {
+    from {
+      transform: scale(0);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+</style>

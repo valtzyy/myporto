@@ -1,0 +1,45 @@
+---
+interface Props {
+  index: string;
+  title: string;
+  tone?: 'dark' | 'paper';
+  id?: string;
+  wide?: boolean;
+}
+
+const { index, title, tone = 'dark', id, wide = false } = Astro.props;
+
+const [number, name] = index.split(' / ');
+
+const toneClass = tone === 'paper' ? 'bg-paper text-paper-ink' : 'bg-ink-0 text-paper';
+const ruleClass = tone === 'paper' ? 'bg-paper-2' : 'bg-ink-2';
+const labelClass = tone === 'paper' ? 'text-paper-muted' : 'text-ink-3';
+const ghostClass = tone === 'paper' ? 'text-paper-ink/[0.045]' : 'text-paper/[0.038]';
+const bracketClass = tone === 'paper' ? 'border-paper-2' : 'border-ink-2';
+const fieldClass = tone === 'paper' ? 'field field-paper' : 'field field-dark';
+---
+
+<section id={id} class={`${fieldClass} overflow-hidden ${toneClass} px-6 py-24 sm:py-32`}>
+  <span
+    class={`pointer-events-none absolute -top-6 right-2 select-none font-mono text-[13rem] leading-none font-medium sm:text-[19rem] ${ghostClass}`}
+    aria-hidden="true">{number}</span
+  >
+
+  <div class={`relative mx-auto ${wide ? 'max-w-6xl' : 'max-w-4xl'}`}>
+    <header>
+      <div class="flex items-center gap-4">
+        <span class={`label ${labelClass}`}>{number} / {name}</span>
+        <span class={`h-px flex-1 ${ruleClass}`}></span>
+        <span class={`h-2 w-2 border-t border-r ${bracketClass}`} aria-hidden="true"></span>
+      </div>
+
+      <h2 class="clip-reveal mt-6 text-3xl font-medium tracking-tight sm:text-4xl">
+        {title}
+      </h2>
+    </header>
+
+    <div class="mt-14">
+      <slot />
+    </div>
+  </div>
+</section>

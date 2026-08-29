@@ -1,0 +1,106 @@
+---
+import { generateGlyph, layoutGlyph } from '../lib/glyph';
+
+interface Props {
+  seed: string;
+  density?: number;
+  tone?: 'paper' | 'dark';
+}
+
+const { seed, density = 7, tone = 'paper' } = Astro.props;
+
+const glyph = generateGlyph(seed, { density });
+const { width, height, blocks, paths } = layoutGlyph(glyph);
+
+const line = tone === 'paper' ? '#c9c6ba' : '#34343a';
+const fill = tone === 'paper' ? '#e8e5dc' : '#161617';
+const rule = tone === 'paper' ? '#b0ada1' : '#3d3d43';
+---
+
+<svg
+  viewBox={`-8 -8 ${width + 16} ${height + 16}`}
+  class="glyph h-full w-full"
+  role="img"
+  aria-label={`Schematic diagram representing ${seed}`}
+>
+  <g class="glyph-links">
+    {paths.map((d) => <path d={d} fill="none" stroke={line} stroke-width="1" />)}
+  </g>
+
+  <g class="glyph-blocks">
+    {
+      blocks.map((b, i) => (
+        <g class="glyph-block" style={`--i:${i}`}>
+          <rect
+            x={b.px}
+            y={b.py}
+            width={b.pw}
+            height={b.ph}
+            fill={b.accent ? '#d85a30' : fill}
+            stroke={b.accent ? '#d85a30' : line}
+            stroke-width="1"
+          />
+          {Array.from({ length: b.rows }).map((_, r) => (
+            <line
+              x1={b.px + 7}
+              y1={b.py + 13 + r * 9}
+              x2={b.px + b.pw - 7}
+              y2={b.py + 13 + r * 9}
+              stroke={b.accent ? 'rgba(255,255,255,0.55)' : rule}
+              stroke-width="1.5"
+              opacity={b.accent ? '0.9' : '0.55'}
+            />
+          ))}
+        </g>
+      ))
+    }
+  </g>
+</svg>
+
+<style>
+  .glyph-block {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .glyph-block {
+        animation: glyph-in linear both;
+        animation-timeline: view();
+        animation-range: entry 8% cover 26%;
+        animation-delay: calc(var(--i) * -0.5s);
+      }
+    }
+
+    /* The connectors draw themselves in as the diagram scrolls into frame. */
+    @supports (animation-timeline: view()) {
+      .glyph-links path {
+        stroke-dasharray: 240;
+        animation: glyph-draw linear both;
+        animation-timeline: view();
+        animation-range: entry 5% cover 30%;
+      }
+    }
+  }
+
+  @keyframes glyph-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes glyph-draw {
+    from {
+      stroke-dashoffset: 240;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+</style>
