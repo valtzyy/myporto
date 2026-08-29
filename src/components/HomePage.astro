@@ -1,0 +1,252 @@
+---
+import Base from '../layouts/Base.astro';
+import Section from './Section.astro';
+import Timeline from './Timeline.astro';
+import WorkList from './WorkList.astro';
+import HeroGraphStatic from './HeroGraphStatic.astro';
+import RoleThread from './RoleThread.astro';
+import LangSwitch from './LangSwitch.astro';
+import { site, localised, education, contact, stack, learning, achievements, pick } from '../consts';
+import type { Lang } from '../i18n/ui';
+import { useTranslations } from '../i18n/utils';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const s = localised[lang];
+
+/* Resolved here rather than in the template: a generic type annotation inside
+   a JSX expression parses as a tag. */
+const stackGroups = stack.map((group) => ({
+  name: pick(group.group, lang),
+  items: pick(group.items, lang),
+}));
+---
+
+<Base>
+  <section class="field field-dark flex min-h-svh flex-col justify-end overflow-hidden px-6 pb-20">
+    <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+      <HeroGraphStatic />
+    </div>
+
+    <!-- Keeps the headline legible over the brightest part of the graph. -->
+    <div
+      class="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-0 via-ink-0/35 via-45% to-transparent"
+      aria-hidden="true"
+    >
+    </div>
+
+    <div
+      class="absolute inset-x-6 top-8 flex items-center justify-between font-mono text-[0.6875rem] tracking-[0.08em] text-ink-3 uppercase"
+    >
+      <span>{s.location}</span>
+      <div class="flex items-center gap-5">
+        <span class="hidden sm:inline">{t('hero.cohort')} {education.cohort}</span>
+        <LangSwitch />
+      </div>
+    </div>
+
+    <div class="relative mx-auto w-full max-w-6xl">
+      <p class="label text-ink-3">00 / {t('hero.index')}</p>
+
+      <h1 class="clip-reveal mt-6 text-display font-medium">
+        Novaldo<br />Putra Nugraha
+      </h1>
+
+      <div class="mt-9 flex max-w-3xl items-start gap-5">
+        <span class="mt-4 h-px w-12 shrink-0 bg-accent"></span>
+        <p class="text-lead text-ink-4">{s.positioning}</p>
+      </div>
+
+      <div class="mt-11 flex flex-wrap items-center gap-x-8 gap-y-4">
+        <a
+          href="#work"
+          class="group inline-flex items-center gap-2 border-b border-accent pb-1 text-sm font-medium"
+        >
+          {t('hero.seeWork')}
+          <span class="transition-transform duration-300 group-hover:translate-x-1">→</span>
+        </a>
+        <a href={contact.cv} class="text-sm text-ink-4 transition-colors hover:text-paper">
+          {t('hero.cv')}
+        </a>
+        <a href={contact.github} class="text-sm text-ink-4 transition-colors hover:text-paper">
+          GitHub
+        </a>
+        <a href={contact.linkedin} class="text-sm text-ink-4 transition-colors hover:text-paper">
+          LinkedIn
+        </a>
+      </div>
+
+      <div class="mt-16 flex items-center gap-3 font-mono text-[0.6875rem] text-ink-3">
+        <span class="scroll-cue inline-block h-8 w-px bg-ink-2"></span>
+        <span class="tracking-[0.08em] uppercase">{t('hero.scroll')}</span>
+      </div>
+    </div>
+  </section>
+
+  <Section index={`01 / ${t('section.summary')}`} title={t('section.summaryTitle')}>
+    <div class="grid gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16">
+      <div class="reveal space-y-6 text-lg leading-relaxed text-ink-4">
+        <p>
+          {
+            t('summary.education', {
+              institution: s.institution,
+              cohort: education.cohort,
+              gpa: education.gpa,
+            })
+          }
+        </p>
+        <p class="text-paper">{t('summary.thread')}</p>
+        <p>
+          {t('summary.outside', { language: learning.language, reason: s.learningReason })}
+        </p>
+      </div>
+
+      <div class="reveal">
+        <RoleThread lang={lang} />
+      </div>
+    </div>
+  </Section>
+
+  <Section
+    index={`02 / ${t('section.experience')}`}
+    title={t('section.experienceTitle')}
+    tone="paper"
+  >
+    <Timeline lang={lang} />
+  </Section>
+
+  <Section
+    index={`03 / ${t('section.work')}`}
+    title={t('section.workTitle')}
+    tone="paper"
+    id="work"
+    wide
+  >
+    <WorkList lang={lang} />
+  </Section>
+
+  <Section index={`04 / ${t('section.stack')}`} title={t('section.stackTitle')} wide>
+    <div class="grid gap-px border border-ink-2 bg-ink-2 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        stackGroups.map((group, gi) => (
+          <div class="reveal bg-ink-0 p-7" style={`--i:${gi}`}>
+            <div class="flex items-center gap-3">
+              <span class="label text-ink-3">{group.name}</span>
+              <span class="h-px flex-1 bg-ink-2" />
+              <span class="font-mono text-[0.6875rem] text-ink-3">
+                {String(group.items.length).padStart(2, '0')}
+              </span>
+            </div>
+
+            <ul class="mt-6 space-y-2.5">
+              {group.items.map((item) => (
+                <li class="flex items-start gap-3 text-[0.9375rem] text-paper">
+                  <span class="mt-2.5 h-px w-2.5 shrink-0 bg-ink-3" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+
+      <div class="reveal flex flex-col justify-between bg-ink-1 p-7">
+        <span class="label text-accent">{t('stack.learning')}</span>
+        <div class="mt-8">
+          <p class="font-mono text-5xl leading-none text-paper">{learning.language}</p>
+          <p class="mt-4 text-sm leading-relaxed text-ink-4">
+            {t('stack.learningLine', { reason: s.learningReason })}
+          </p>
+        </div>
+      </div>
+    </div>
+  </Section>
+
+  <Section index={`05 / ${t('section.achievements')}`} title={t('section.achievementsTitle')}>
+    <ul class="border-t border-ink-2">
+      {
+        achievements.map((a) => (
+          <li class="reveal group flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3 border-b border-ink-2 py-7 transition-colors hover:bg-ink-1/50">
+            <div class="flex max-w-xl items-baseline gap-4">
+              <span
+                class:list={[
+                  'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+                  a.open ? 'bg-accent' : 'bg-ink-3',
+                ]}
+              />
+              <div>
+                <h3 class="font-medium text-paper">{a.title}</h3>
+                <p class="mt-1 text-sm text-ink-4">{pick(a.detail, lang)}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-5">
+              <span class:list={['label', a.open ? 'text-accent' : 'text-ink-3']}>
+                {pick(a.status, lang)}
+              </span>
+              <span class="font-mono text-sm text-ink-3">{a.year}</span>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <Section index={`06 / ${t('section.contact')}`} title={t('section.contactTitle')}>
+    <div class="grid gap-12 sm:grid-cols-2">
+      <div class="reveal">
+        <p class="max-w-md text-lg leading-relaxed text-ink-4">
+          {t('contact.pitch', { location: s.location })}
+        </p>
+
+        <a
+          href={contact.cv}
+          class="group mt-9 inline-flex items-center gap-3 border border-ink-2 px-6 py-3.5 text-sm font-medium transition-colors hover:border-accent hover:text-accent"
+        >
+          {t('hero.cv')}
+          <span class="transition-transform duration-300 group-hover:translate-y-0.5">↓</span>
+        </a>
+      </div>
+
+      <dl class="reveal divide-y divide-ink-2 border-y border-ink-2">
+        {
+          [
+            { label: t('contact.email'), value: contact.email, href: `mailto:${contact.email}` },
+            {
+              label: t('contact.phone'),
+              value: contact.phoneIntl,
+              href: `tel:+62${contact.phone.slice(1)}`,
+            },
+            { label: 'GitHub', value: contact.githubHandle, href: contact.github },
+            { label: 'LinkedIn', value: contact.linkedinHandle, href: contact.linkedin },
+          ].map((row) => (
+            <div class="flex items-baseline justify-between gap-6 py-4">
+              <dt class="label text-ink-3">{row.label}</dt>
+              <dd>
+                <a href={row.href} class="text-[0.9375rem] transition-colors hover:text-accent">
+                  {row.value}
+                </a>
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </Section>
+
+  <footer class="border-t border-ink-2 bg-ink-0 px-6 py-10">
+    <div
+      class="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 font-mono text-[0.6875rem] tracking-[0.08em] text-ink-3 uppercase"
+    >
+      <span>{site.name}</span>
+      <div class="flex items-center gap-6">
+        <span>{t('footer.built')} · {new Date().getFullYear()}</span>
+        <LangSwitch />
+      </div>
+    </div>
+  </footer>
+</Base>

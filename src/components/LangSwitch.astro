@@ -1,0 +1,49 @@
+---
+import { languages, type Lang } from '../i18n/ui';
+import { alternatePath, getLangFromUrl, useTranslations } from '../i18n/utils';
+
+interface Props {
+  tone?: 'dark' | 'paper';
+}
+
+const { tone = 'dark' } = Astro.props;
+
+const current = getLangFromUrl(Astro.url);
+const t = useTranslations(current);
+
+const idle = tone === 'paper' ? 'text-paper-muted' : 'text-ink-3';
+const active = tone === 'paper' ? 'text-paper-ink' : 'text-paper';
+const divider = tone === 'paper' ? 'bg-paper-2' : 'bg-ink-2';
+
+/*
+  Plain links, not a control. Each language is a real URL, so it is
+  bookmarkable, crawlable, and works with no JavaScript at all.
+*/
+const options = (Object.keys(languages) as Lang[]).map((lang) => ({
+  lang,
+  href: alternatePath(Astro.url, lang),
+  label: lang.toUpperCase(),
+  isCurrent: lang === current,
+}));
+---
+
+<nav class="flex items-center gap-2" aria-label={t('nav.language')}>
+  {
+    options.map((option, i) => (
+      <>
+        {i > 0 && <span class={`h-2.5 w-px ${divider}`} aria-hidden="true" />}
+        <a
+          href={option.href}
+          hreflang={option.lang}
+          aria-current={option.isCurrent ? 'true' : undefined}
+          class:list={[
+            'label transition-colors',
+            option.isCurrent ? active : `${idle} hover:text-accent`,
+          ]}
+        >
+          {option.label}
+        </a>
+      </>
+    ))
+  }
+</nav>
